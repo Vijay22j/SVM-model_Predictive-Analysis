@@ -1,0 +1,256 @@
+---
+title: "DSCI5340_HW4_Group 6"
+author: "Prasanth Gutha, Manasa Shivkar, Fahimeh Asgari, Vijay Ramaraju Jampana"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading the Packages
+
+```{r Packages}
+pacman::p_load(e1071, ggplot2, caret, rmarkdown, corrplot)
+search()
+theme_set(theme_classic())
+options(digits = 3)
+```
+
+## 1. Create a training data set containing a random sample of 90% of the observations in the “juice2022.csv” data set using the createDataPartition() function. Create a test data set containing the remaining observations.
+```{r Data set}
+Juice2022.df <- read.csv("juice2022.csv", stringsAsFactors = TRUE)
+str(Juice2022.df)
+```
+
+#creating the training data set and test data set
+
+```{r Data Partition}
+set.seed(42)
+train.index <- createDataPartition(Juice2022.df$Purchase, p = 0.9, list = FALSE)
+train_Juice2022 <- Juice2022.df[train.index, ]
+test_Juice2022 <- Juice2022.df[-train.index, ]
+```
+
+## 2. Fit an SVM model with a linear kernel to the training data using cost=0.01. Use Purchase as the response and the other variables as predictors in this model. Use the summary() function to produce summary statistics, and describe the results obtained.
+
+```{r SVM kernel-Linear}
+set.seed(42)
+svm_linear <- svm(Purchase ~., data = train_Juice2022, cost = 0.01, kernel = "linear")
+summary(svm_linear)
+
+pred_svml <- predict(svm_linear, newdata = test_Juice2022)
+accuracyl = mean(pred_svml == test_Juice2022$Purchase)
+cat("SVM Linear accuracy: ", accuracyl)
+```
+ - Based on the summary of the SVM using linear kernel, we have 823 Support Vectors. 424 Support Vectors are FN(Florida’s Natural) and 399 Support Vectors are MM(Minute Maid).
+
+## 3. What are the training and test error rates?
+```{r Linear Error rates}
+## Training error
+pred_train_svml <- predict(svm_linear, train_Juice2022)
+training_error <- mean(pred_train_svml != train_Juice2022$Purchase)
+cat("Training Error rate: ", training_error)
+
+## Test Error
+pred_test_svml <- predict(svm_linear, test_Juice2022)
+test_error <- mean(pred_test_svml != test_Juice2022$Purchase)
+cat("Test Error rate: ", test_error)
+```
+
+
+## 4. Use the tune() function to select an optimal cost. Consider values in the range 0.01 to 10.
+```{r Tuning}
+set.seed(42)
+svml_tune <- tune(svm, Purchase ~., data = train_Juice2022, Kernel = "linear",
+                  ranges = list(cost = c(seq(0.01,0.1,by = 0.01),
+                             seq(0.1,1,by = 0.1),
+                             seq(1,10,by = 1))))
+summary(svml_tune)
+```
+
+```{r Optimal cost}
+Optimal_cost <- svml_tune$best.model$cost
+summary(Optimal_cost)
+svml_tuned <- svml_tune$best.model
+summary(svml_tuned)
+```
+ - The optimal cost using tune function is 0.01
+ 
+## 5. Compute and report the training and test error rates using this new value for cost.
+```{r Errors using new cost}
+pred_svm2 <- predict(svml_tuned, newdata = test_Juice2022)
+accuracy = mean(pred_svm2 == test_Juice2022$Purchase)
+cat("SVM Linear accuracy: ", accuracy)
+
+svmlt <- svm(Purchase ~ ., data = train_Juice2022, Kernel = "linear",
+             cost = Optimal_cost)
+
+## Training error
+pred_train_svm2 <- predict(svmlt, train_Juice2022)
+training_error <- mean(pred_train_svm2 != train_Juice2022$Purchase)
+cat("New Training Error rate: ", training_error)
+
+## Test Error
+pred_test_svm2 <- predict(svmlt, test_Juice2022)
+test_error <- mean(pred_test_svm2 != test_Juice2022$Purchase)
+cat("New Test Error rate: ", test_error)
+
+Linear_model <- data.frame("kernel" = "linear", "Cost" = Optimal_cost,
+                           "Training Error" = training_error,
+                           "Test Error"= test_error)
+Linear_model
+```
+
+
+## 6. Repeat parts (2.) through (5.) using a support vector machine with a radial kernel. Use the default value for gamma, if needed.
+
+```{r SVM kernel-radial}
+## Step 2
+set.seed(42)
+svm_radial <- svm(Purchase ~., data = train_Juice2022, cost = 0.01,
+                            kernel = "radial", gamma = 1)
+summary(svm_radial)
+
+pred_svmr <- predict(svm_radial, newdata = test_Juice2022)
+accuracy_radial = mean(pred_svmr == test_Juice2022$Purchase)
+cat("SVM radial accuracy: ", accuracy_radial)
+```
+- SVM using radial kernel has 881 support vectors, of which 482 were FN and 399 were MM
+
+```{r Radial error rates}
+## Training error
+pred_train_svmradial <- predict(svm_radial, train_Juice2022)
+training_error <- mean(pred_train_svmradial != train_Juice2022$Purchase)
+cat("Training Error rate: ", training_error)
+
+## Test Error
+pred_test_svmradial <- predict(svm_radial, test_Juice2022)
+test_error <- mean(pred_test_svmradial != test_Juice2022$Purchase)
+cat("Test Error rate: ", test_error)
+```
+
+```{r SVM radial tuning}
+set.seed(42)
+svmradial_tune <- tune(svm, Purchase ~., data = train_Juice2022,
+                       kernel = "radial", gamma = 1,
+                       ranges = list(cost = c(seq(0.01,0.1,by = 0.01), 
+                                  seq(0.1,1,by = 0.1),
+                                  seq(1,10,by = 1))))
+summary(svmradial_tune)
+```
+```{r radial optimal cost}
+Optimal_costr <- svmradial_tune$best.model$cost
+summary(Optimal_cost)
+svmradial_tuned <- svmradial_tune$best.model
+summary(svmradial_tuned)
+```
+- The optimal cost using tune function is 0.5
+
+```{r}
+pred_svmradial <- predict(svmradial_tuned, newdata = test_Juice2022)
+accuracy = mean(pred_svmradial == test_Juice2022$Purchase)
+cat("SVM radial accuracy: ", accuracy)
+
+svmrt <- svm(Purchase ~ ., data = train_Juice2022, kernel = "radial",
+             cost = Optimal_costr)
+
+## Training error
+pred_train_svmradial <- predict(svmrt, train_Juice2022)
+training_error <- mean(pred_train_svmradial != train_Juice2022$Purchase)
+cat("New Training Error rate: ", training_error)
+
+## Test Error
+pred_test_svmradial <- predict(svmrt, test_Juice2022)
+test_error <- mean(pred_test_svmradial != test_Juice2022$Purchase)
+cat("New Test Error rate: ", test_error)
+
+Radial_model <- data.frame("kernel" = "Radial", "Cost" = Optimal_costr,
+                           "Training Error" = training_error,
+                           "Test Error"= test_error)
+Radial_model
+
+```
+
+## 7. Repeat parts (2.) through (5.) using a support vector machine with a polynomial kernel. Set degree=2.
+
+```{r SVM Kernel-Polynomial}
+set.seed(42)
+svm_polynomial <- svm(Purchase ~., data = train_Juice2022, cost = 0.01,
+                            kernel = 'polynomial', degree = 2)
+summary(svm_polynomial)
+
+pred_svm_poly <- predict(svm_polynomial, newdata = test_Juice2022)
+accuracy_poly = mean(pred_svm_poly == test_Juice2022$Purchase)
+cat("SVM poly accuracy: ", accuracy_poly)
+```
+- SVM using polynomial has 824 support vectors of which 425 are FN and 399 are MM.
+
+```{r}
+## Training error
+pred_train_svmpoly <- predict(svm_polynomial, train_Juice2022)
+training_error <- mean(pred_train_svmpoly != train_Juice2022$Purchase)
+cat("Training Error rate: ", training_error)
+
+## Test Error
+pred_test_svmpoly <- predict(svm_polynomial, test_Juice2022)
+test_error <- mean(pred_test_svmpoly != test_Juice2022$Purchase)
+cat("Test Error rate: ", test_error)
+```
+ - The svm using polynomial kernel has training Error rate of 0.443 and
+ test Error rate:  0.444
+```{r SVM poly tuning}
+set.seed(42)
+svmpoly_tune <- tune(svm, Purchase ~., data = train_Juice2022,
+                     degree = 2, kernel = "polynomial",
+                     ranges = list(cost = c(seq(0.01, 0.1, by = 0.01),
+                                seq(0.1, 1, by = 0.1),
+                                seq(1, 10, by = 1))))
+summary(svmpoly_tune)
+```
+
+```{r}
+Optimal_costp <- svmpoly_tune$best.model$cost
+summary(Optimal_cost)
+svmpoly_tuned <- svmpoly_tune$best.model
+summary(svmpoly_tuned)
+```
+- The optimal cost using tune function is 0.5
+```{r Polynomial errors}
+svm_cost <- svm(Purchase ~ ., data = train_Juice2022, Kernel = "polynomial",
+                cost = Optimal_cost)
+
+pred_svmpoly <- predict(svmpoly_tuned, newdata = test_Juice2022)
+accuracy = mean(pred_svmpoly == test_Juice2022$Purchase)
+cat("SVM polynomial accuracy: ", accuracy)
+
+svmpt <- svm(Purchase ~ ., data = train_Juice2022, kernel = "polynomial",
+             cost = Optimal_costp)
+
+## Training error
+pred_train_svmpoly <- predict(svm_cost, train_Juice2022)
+training_error <- mean(pred_train_svmpoly != train_Juice2022$Purchase)
+cat("New Training Error rate: ", training_error)
+
+## Test Error
+pred_test_svmpoly <- predict(svm_cost, test_Juice2022)
+test_error <- mean(pred_test_svmpoly != test_Juice2022$Purchase)
+cat("New Test Error rate: ", test_error)
+
+Polynomial_model <- data.frame("kernel" = "Polynomial",
+                               "Cost" = Optimal_costr,
+                               "Training Error" = training_error,
+                               "Test Error"= test_error)
+Polynomial_model
+```
+
+## 8. Overall, which of the above approaches give the best results using this data? Explain your answer.
+
+```{r}
+Best_model <- rbind(Linear_model, Radial_model, Polynomial_model)
+Best_model
+```
+- The svm model with radial kernel gives the best results with the lowest test error rate of 0.434 with an optimal cost of 0.5 as compared to other svm model with linear and polynomial kernels.
+- The training error rate and test error rate for svm model with radial kernel are 0.443 and 0.444 before tuning. after tuning, the training error rate and test error rate are 0.401 and 0.434 which shows a bit improvement.  
