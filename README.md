@@ -3,7 +3,7 @@
 ## 📄 Project Overview  
 This project focuses on **classifying purchase behavior** (**FN vs. MM**) using **Support Vector Machine (SVM) models** and optimizing the **hyperparameters** to improve model performance.  
 
-## 📂 File: `DSCI5340_HW4_Group6.pdf`  
+## 📂 File: `SVM Model_Analysis.pdf`  
 
 ## 🎯 Objective  
 - Build an **SVM model** to predict purchase behavior.  
